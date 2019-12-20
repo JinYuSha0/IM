@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>IM System</title>
+</head>
+<body>
+<h1>Socket.io</h1>
+
+<script src="https://cdn.bootcss.com/socket.io/2.3.0/socket.io.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.12.0/js/md5.min.js"></script>
+<script>
+    function connect() {
+        var timestamp = +new Date()
+        var id = 'user-123'
+        var sign = md5(`${id}-${timestamp}-user`)
+
+        var socket = io('/user', {
+            path: '/im',
+            transport: ['websocket'],
+            query: {
+                id: id,
+                timestamp: timestamp,
+                sign: sign,
+            }
+        })
+
+        socket.on('connect', function () {
+            console.log('connect')
+        })
+
+        socket.on('RECEIVE_MSG', async function (data) {
+            const res = await deserializeMsg(data)
+            console.log(res)
+        })
+
+        socket.on('SYSTEM_NOTICE', async function (data) {
+            const res = await deserializeMsg(data)
+            console.log(res)
+        })
+
+        socket.on('JOIN_ROOM', async function (data) {
+            const res = await deserializeMsg(data)
+            const { roomId } = JSON.parse(JSON.parse(res).msg)
+            console.log('roomId:', roomId)
+            socket.emit('SEND_MSG', { roomId, msg: 'test - user' })
+        })
+
+        socket.on('disconnect', function () {
+            console.log('disconnect')
+        })
+    }
+
+    function deserializeMsg(buffer, code = [5, 4, 1, 88]) {
+       return new Promise((resolve, reject) => {
+           buffer = new Uint8Array(buffer)
+
+           for (let i = 0; i < buffer.length; i++) {
+               buffer[i] = buffer[i] ^ code[i % code.length]
+           }
+
+           const reader = new FileReader()
+           reader.readAsText(new Blob([buffer]))
+           reader.onload = function () {
+               let text = reader.result
+               resolve(text)
+           }
+           reader.onerror = function(e) {
+               reject(e)
+           }
+       })
+    }
+
+    connect()
+</script>
+</body>
+</html>
